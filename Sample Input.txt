@@ -1,0 +1,2 @@
+Bitte führe die 10 wichigsten Aktuellen Attack Vektoren auf. 
+Nutze dafür bekannte Quellen, wie OWASP oder SANS.
