@@ -427,7 +427,7 @@ class PromptApp(ctk.CTk):
         try:
             with open(file_path, 'rb') as pdf_file:
                 reader = PyPDF2.PdfReader(pdf_file)
-                total_pages = min(len(reader.pages), 10) # Wir lesen max 10 Seiten
+                total_pages = min(len(reader.pages), 20) # Wir lesen max 10 Seiten
                 raw_text = ""
                 
                 for i in range(total_pages):
