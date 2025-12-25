@@ -103,6 +103,7 @@ class PromptApp(ctk.CTk):
         self.progress_bar = ctk.CTkProgressBar(left_p, orientation="horizontal", mode="determinate")
         self.progress_bar.pack(pady=5, padx=20, fill="x")
         self.progress_bar.set(0) # Start bei 0%
+        self.progress_bar.configure(progress_color="#e67e22") # Startfarbe: Orange
         
         # Ein Label für den Status-Text (optional)
         self.status_label = ctk.CTkLabel(left_p, text="Bereit", font=ctk.CTkFont(size=10))
@@ -448,3 +449,30 @@ class PromptApp(ctk.CTk):
         except Exception as e:
             self.after(0, lambda: messagebox.showerror("Fehler", f"PDF-Fehler: {e}"))
             self.after(0, lambda: self.pdf_btn.configure(state="normal"))
+
+    def _finalize_pdf_load(self, file_name):
+        # 1. Checkbox wie gewohnt erstellen
+        var = ctk.BooleanVar(value=True)
+        cb = ctk.CTkCheckBox(self.source_frame, text=f"📄 {file_name}", 
+                                variable=var, command=lambda: self.update_preview())
+        cb.pack(anchor="w", padx=5, pady=2)
+        self.source_vars[file_name] = var
+            
+        # 2. FARBANIMATION: Erfolg signalisieren
+        # Wir setzen den Balken auf 100% und färben ihn Grün
+        self.progress_bar.set(1.0)
+        self.progress_bar.configure(progress_color="#2ecc71") # Erfolg: Grün
+        self.status_label.configure(text="Abgeschlossen!", text_color="#2ecc71")
+            
+        # 3. UI-Elemente reaktivieren
+        self.pdf_btn.configure(state="normal")
+        self.update_preview()
+            
+        # 4. RESET-TIMER: Nach 3 Sekunden alles auf Anfang setzen
+        self.after(3000, self._reset_progress_ui)
+
+    def _reset_progress_ui(self):
+        """Setzt die Progress-Bar sanft auf den Ursprungszustand zurück."""
+        self.progress_bar.set(0)
+        self.progress_bar.configure(progress_color="#e67e22") # Zurück zu Orange
+        self.status_label.configure(text="Bereit", text_color=["black", "white"]) # Standard Textfarbe
