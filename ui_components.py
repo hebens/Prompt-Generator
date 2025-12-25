@@ -428,7 +428,27 @@ class PromptApp(ctk.CTk):
         thread = threading.Thread(target=self._pdf_worker, args=(file_path,))
         thread.start()
 
-    def _pdf_worker(self, file_path):
+    def _parse_pages(self, range_str, max_pages):
+        pages = []
+        try:
+            if not range_str or range_str.strip() == "":
+                return list(range(min(max_pages, 10)))
+            
+            if "-" in range_str:
+                start, end = map(int, range_str.split("-"))
+                # Umwandlung in 0-basierten Index und Validierung
+                for p in range(start-1, end):
+                    if 0 <= p < max_pages:
+                        pages.append(p)
+            else:
+                p = int(range_str) - 1
+                if 0 <= p < max_pages:
+                    pages.append(p)
+        except:
+            return list(range(min(max_pages, 10))) # Fallback auf Standard
+        return pages
+
+    def _pdf_worker(self, file_path, page_range_str):
         import PyPDF2
         import re
         import os
@@ -437,34 +457,37 @@ class PromptApp(ctk.CTk):
         try:
             with open(file_path, 'rb') as pdf_file:
                 reader = PyPDF2.PdfReader(pdf_file)
-                total_pages = min(len(reader.pages), 20) # Wir lesen max 10 Seiten
-                raw_text = ""
+                total_in_pdf = len(reader.pages)
                 
-                for i in range(total_pages):
-                    page_text = reader.pages[i].extract_text()
+                # Seiten berechnen
+                target_pages = self._parse_pages(page_range_str, total_in_pdf)
+                
+                raw_text = ""
+                for idx, p_num in enumerate(target_pages):
+                    page_text = reader.pages[p_num].extract_text()
                     if page_text:
-                        raw_text += page_text + " "
+                        raw_text += f"\n[Seite {p_num+1}]\n" + page_text + " "
                     
-                    # Progress-Bar aktualisieren (muss in 0.0 bis 1.0 angegeben werden)
-                    progress = (i + 1) / total_pages
+                    # Progress aktualisieren
+                    progress = (idx + 1) / len(target_pages)
                     self.after(0, lambda p=progress: self.progress_bar.set(p))
                 
-                # Text-Bereinigung (Fließtext-Logik)
+                # Text-Bereinigung
                 clean_text = re.sub(r'\s+', ' ', raw_text.replace('\n', ' ')).strip()
-                self.pdf_vault[file_name] = clean_text[:5000] # Cap bei 5000 Zeichen
-
-                # UI-Update nach Erfolg (muss über .after laufen, da Thread-sicher)
-                self.after(0, lambda: self._finalize_pdf_load(file_name))
+                
+                # Speichern mit Hinweis auf den Bereich im Namen
+                display_name = f"{file_name} (S.{page_range_str})" if page_range_str else file_name
+                self.pdf_vault[display_name] = clean_text
+                
+                self.after(0, lambda: self._finalize_pdf_load(display_name))
                 
         except Exception as e:
             def handle_error():
                 self.progress_bar.configure(progress_color="#e74c3c") # Fehler: Rot
                 self.status_label.configure(text="Fehler!", text_color="#e74c3c")
-                messagebox.showerror("PDF Fehler", f"Details: {e}")
-                self.pdf_btn.configure(state="normal")
-                # Auch hier nach 3 Sek. Reset
+                self.after(0, lambda: messagebox.showerror("Fehler", f"PDF-Bereich Fehler: {e}"))
+                self.after(0, lambda: self.pdf_btn.configure(state="normal"))
                 self.after(3000, self._reset_progress_ui)
-            
             self.after(0, handle_error)
 
     def _finalize_pdf_load(self, file_name):
