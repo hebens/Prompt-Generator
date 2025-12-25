@@ -99,6 +99,15 @@ class PromptApp(ctk.CTk):
         # Speicher für PDF-Inhalte
         self.pdf_vault = {}
 
+        # In setup_ui (Linke Spalte) unter dem pdf_btn:
+        self.progress_bar = ctk.CTkProgressBar(left_p, orientation="horizontal", mode="determinate")
+        self.progress_bar.pack(pady=5, padx=20, fill="x")
+        self.progress_bar.set(0) # Start bei 0%
+        
+        # Ein Label für den Status-Text (optional)
+        self.status_label = ctk.CTkLabel(left_p, text="Bereit", font=ctk.CTkFont(size=10))
+        self.status_label.pack(pady=0)
+        
         # Theme Selector
         ctk.CTkLabel(left_p, text="Vorschau Theme:").pack(anchor="w", padx=20, pady=(10,0))
         # Holt die Keys direkt aus der Config
@@ -393,47 +402,49 @@ class PromptApp(ctk.CTk):
 
     def load_pdf_as_source(self):
         from tkinter import filedialog
-        import PyPDF2
+        import threading
         
         file_path = filedialog.askopenfilename(filetypes=[("PDF Files", "*.pdf")])
         if not file_path:
             return
             
-        file_name = os.path.basename(file_path)
+        # UI vorbereiten
+        self.pdf_btn.configure(state="disabled")
+        self.status_label.configure(text="Lese PDF ein...")
+        self.progress_bar.set(0)
         
+        # Thread starten, damit die UI nicht einfriert
+        thread = threading.Thread(target=self._pdf_worker, args=(file_path,))
+        thread.start()
+
+    def _pdf_worker(self, file_path):
+        import PyPDF2
+        import re
+        import os
+        
+        file_name = os.path.basename(file_path)
         try:
             with open(file_path, 'rb') as pdf_file:
                 reader = PyPDF2.PdfReader(pdf_file)
+                total_pages = min(len(reader.pages), 10) # Wir lesen max 10 Seiten
                 raw_text = ""
-                # Wir lesen die ersten 5 Seiten (um den Prompt nicht zu sprengen)
-                for i in range(min(len(reader.pages), 5)):
-                    page_text += reader.pages[i].extract_text()
+                
+                for i in range(total_pages):
+                    page_text = reader.pages[i].extract_text()
                     if page_text:
                         raw_text += page_text + " "
-                # --- TEXT BEREINIGUNG (FLIESSTEXT LOGIK) ---
-                # 1. Alle harten Zeilenumbrüche durch Leerzeichen ersetzen
-                clean_text = raw_text.replace('\n', ' ')
+                    
+                    # Progress-Bar aktualisieren (muss in 0.0 bis 1.0 angegeben werden)
+                    progress = (i + 1) / total_pages
+                    self.after(0, lambda p=progress: self.progress_bar.set(p))
                 
-                # 2. Mehrfache Leerzeichen (die durch das Ersetzen entstehen) zu einem kürzen
-                clean_text = re.sub(r'\s+', ' ', clean_text)
-                
-                # 3. Optional: Extrem lange Texte für LLM-Prompts kürzen (z.B. auf 4000 Zeichen)
-                clean_text = clean_text[:4000] + "..." if len(clean_text) > 4000 else clean_text
-                
-                self.pdf_vault[file_name] = clean_text.strip()
+                # Text-Bereinigung (Fließtext-Logik)
+                clean_text = re.sub(r'\s+', ' ', raw_text.replace('\n', ' ')).strip()
+                self.pdf_vault[file_name] = clean_text[:5000] # Cap bei 5000 Zeichen
 
-                # In den "Tresor" legen
-                # self.pdf_vault[file_name] = text
-                
-                # Dynamisch eine neue Checkbox hinzufügen
-                var = ctk.BooleanVar(value=True)
-                cb = ctk.CTkCheckBox(self.source_frame, text=f"📄 {file_name}", 
-                                     variable=var, command=lambda: self.update_preview())
-                cb.pack(anchor="w", padx=5, pady=2)
-                self.source_vars[file_name] = var
-                
-                self.update_preview()
-                messagebox.showinfo("PDF Geladen", f"{file_name} wurde erfolgreich eingelesen.")
+                # UI-Update nach Erfolg (muss über .after laufen, da Thread-sicher)
+                self.after(0, lambda: self._finalize_pdf_load(file_name))
                 
         except Exception as e:
-            messagebox.showerror("Fehler", f"PDF konnte nicht gelesen werden: {e}")
+            self.after(0, lambda: messagebox.showerror("Fehler", f"PDF-Fehler: {e}"))
+            self.after(0, lambda: self.pdf_btn.configure(state="normal"))
