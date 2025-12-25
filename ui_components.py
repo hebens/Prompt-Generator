@@ -252,6 +252,8 @@ class PromptApp(ctk.CTk):
             self.preview_area.delete("0.0", "end")
             self.preview_area.insert("0.0", final_prompt)
 
+            self.apply_highlighting_tags(target)
+
         except Exception as e:
             # Das ist lebenswichtig: Fehlermeldung in der Konsole ausgeben!
             print(f"KRITISCHER FEHLER in update_preview: {e}")
@@ -414,6 +416,9 @@ class PromptApp(ctk.CTk):
         if not file_path:
             return
             
+        # Seitenbereich abfragen
+        page_range_str = self.ask_page_range()    
+
         # UI vorbereiten
         self.pdf_btn.configure(state="disabled")
         self.status_label.configure(text="Lese PDF ein...")
@@ -488,3 +493,8 @@ class PromptApp(ctk.CTk):
         self.progress_bar.set(0)
         self.progress_bar.configure(progress_color="#e67e22") # Zurück zu Orange
         self.status_label.configure(text="Bereit", text_color=["black", "white"]) # Standard Textfarbe
+
+    def ask_page_range(self):
+        # Einfacher Dialog zur Abfrage des Bereichs
+        dialog = ctk.CTkInputDialog(text="Seitenbereich eingeben (z.B. 1-3 oder 5):\nLeer lassen für alle (max. 15)", title="PDF Seiten")
+        return dialog.get_input()
