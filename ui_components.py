@@ -408,6 +408,11 @@ class PromptApp(ctk.CTk):
             cb.pack(anchor="w", padx=5, pady=2)
             self.source_vars[src] = var 
 
+    def ask_page_range(self):
+        # Einfacher Dialog zur Abfrage des Bereichs
+        dialog = ctk.CTkInputDialog(text="Seitenbereich eingeben (z.B. 1-3 oder 5):\nLeer lassen für alle (max. 15)", title="PDF Seiten")
+        return dialog.get_input()
+    
     def load_pdf_as_source(self):
         from tkinter import filedialog
         import threading
@@ -419,13 +424,32 @@ class PromptApp(ctk.CTk):
         # Seitenbereich abfragen
         page_range_str = self.ask_page_range()    
 
+        try:
+            # Schneller Check der Seitenzahl vor dem Laden
+            import PyPDF2
+            with open(file_path, 'rb') as f:
+                reader = PyPDF2.PdfReader(f)
+                total_in_pdf = len(reader.pages)
+                
+                # Berechnen, wie viele Seiten angefragt wurden
+                requested_pages = self._parse_pages(page_range_str, total_in_pdf)
+                
+                if len(requested_pages) > 20:
+                    answer = messagebox.askyesno("Warnung", 
+                        f"Du versuchst {len(requested_pages)} Seiten zu laden. "
+                        "Das könnte den Prompt zu groß für die KI machen. Fortfahren?")
+                    if not answer:
+                        return
+        except Exception as e:
+            print(f"Vorab-Check fehlgeschlagen: {e}")
+
         # UI vorbereiten
         self.pdf_btn.configure(state="disabled")
         self.status_label.configure(text="Lese PDF ein...")
         self.progress_bar.set(0)
         
         # Thread starten, damit die UI nicht einfriert
-        thread = threading.Thread(target=self._pdf_worker, args=(file_path,))
+        thread = threading.Thread(target=self._pdf_worker, args=(file_path, page_range_str))
         thread.start()
 
     def _parse_pages(self, range_str, max_pages):
@@ -516,8 +540,3 @@ class PromptApp(ctk.CTk):
         self.progress_bar.set(0)
         self.progress_bar.configure(progress_color="#e67e22") # Zurück zu Orange
         self.status_label.configure(text="Bereit", text_color=["black", "white"]) # Standard Textfarbe
-
-    def ask_page_range(self):
-        # Einfacher Dialog zur Abfrage des Bereichs
-        dialog = ctk.CTkInputDialog(text="Seitenbereich eingeben (z.B. 1-3 oder 5):\nLeer lassen für alle (max. 15)", title="PDF Seiten")
-        return dialog.get_input()
