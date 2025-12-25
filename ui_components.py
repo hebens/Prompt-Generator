@@ -447,8 +447,15 @@ class PromptApp(ctk.CTk):
                 self.after(0, lambda: self._finalize_pdf_load(file_name))
                 
         except Exception as e:
-            self.after(0, lambda: messagebox.showerror("Fehler", f"PDF-Fehler: {e}"))
-            self.after(0, lambda: self.pdf_btn.configure(state="normal"))
+            def handle_error():
+                self.progress_bar.configure(progress_color="#e74c3c") # Fehler: Rot
+                self.status_label.configure(text="Fehler!", text_color="#e74c3c")
+                messagebox.showerror("PDF Fehler", f"Details: {e}")
+                self.pdf_btn.configure(state="normal")
+                # Auch hier nach 3 Sek. Reset
+                self.after(3000, self._reset_progress_ui)
+            
+            self.after(0, handle_error)
 
     def _finalize_pdf_load(self, file_name):
         # 1. Checkbox wie gewohnt erstellen
