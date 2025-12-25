@@ -204,51 +204,50 @@ class PromptApp(ctk.CTk):
 
     def update_preview(self, *args):
         try:
-            # 1. Daten aus der UI sammeln
-            target = self.selections["target"].get() if "target" in self.selections else "ChatGPT"
+            # 1. Basis-Daten sammeln
+            target = self.selections.get("target").get() if "target" in self.selections else "ChatGPT"
             role = self.role_input.get().strip()
             task = self.task_input.get("0.0", "end").strip()
             if task == self.placeholder_task: task = ""
-            tone = self.selections["tone"].get() if "tone" in self.selections else "Standard"
-            fmt = self.selections["fmt"].get() if "fmt" in self.selections else "Fließtext"
-            length = self.selections["length"].get() if "length" in self.selections else "Standard"
-            source = self.selections["source"].get() if "source" in self.selections else ""
-           
-            # Multi-Quellen auslesen
-            selected_sources = [name for name, var in self.source_vars.items() if var.get()]
-            # Wenn keine gewählt ist, übergeben wir einen leeren String oder "Keine"
-            sources_string = ", ".join(selected_sources) if selected_sources else ""
+            
+            tone = self.selections.get("tone").get()
+            fmt = self.selections.get("format").get()
+            length = self.selections.get("length").get()
 
+            # 2. Quellen sammeln (OHNE Duplikate)
+            selected_sources = [name for name, var in self.source_vars.items() if var.get()]
+            
             context_parts = []
+            seen_content = set() # Hilfsmenge gegen Dopplungen
+
             for src in selected_sources:
                 if src in self.pdf_vault:
-                    # Inhalt aus PDF hinzufügen
-                    context_parts.append(f"INHALT AUS DATEI '{src}':\n{self.pdf_vault[src]}")
+                    # Falls es eine PDF ist, fügen wir den Inhalt hinzu
+                    content = self.pdf_vault[src]
+                    if content not in seen_content:
+                        context_parts.append(f"--- DOKUMENT: {src} ---\n{content}")
+                        seen_content.add(content)
                 else:
-                    # Nur den Namen der Standard-Quelle
-                    context_parts.append(src)
+                    # Falls es eine Standard-Quelle ist (z.B. Web-Suche)
+                    if src not in seen_content:
+                        context_parts.append(f"Quelle: {src}")
+                        seen_content.add(src)
 
-            source_string = "\n---\n".join(context_parts) if context_parts else ""
-            source_string = source_string + ";" + sources_string
-            # Engine aufrufen (der 4. Parameter ist nun unser kombinierter String)
+            # Quellen zu einem Block verbinden
+            source_string = "\n\n".join(context_parts) if context_parts else ""
+
+            # 3. Prompt über die Engine bauen
             final_prompt = PromptEngine.build(
                 target, role, task, source_string, tone, fmt, length
             )
 
-            # 2. Den "rohen" Prompt über die Engine bauen lassen
-            #final_prompt = PromptEngine.build(target, role, task, source, tone, fmt, length)
-
-            # 3. Das Textfeld leeren und neu befüllen
+            # 4. UI aktualisieren
             self.preview_area.delete("0.0", "end")
-            
-            # Den Prompt einfügen:
             self.preview_area.insert("end", final_prompt)
 
             self.apply_highlighting_tags(target)
 
-        
-        except KeyError as e:
-            # Falls ein Key in self.selections noch nicht existiert (beim Start)
+        except Exception as e:
             print(f"Fehler in update_preview: {e}")
 
     def quick_add(self):
