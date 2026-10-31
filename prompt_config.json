@@ -1,0 +1,56 @@
+{
+    "config": {
+        "ai_targets": [
+            "ChatGPT",
+            "Claude",
+            "Gemini",
+            "Perplexity"
+        ],
+        "sources": [
+            "Interne Dokumentation",
+            "Web-Suche",
+            "Wissenschaftliche Paper"
+        ],
+        "tones": [
+            "Akademisch",
+            "Professionell",
+            "Kreativ",
+            "Technisch"
+        ],
+        "fmts": [
+            "Fließtext",
+            "Bullet Points",
+            "Markdown Tabelle"
+        ],
+        "lengths": [
+            "Kurz & Knapp",
+            "Standard",
+            "Ausführlich"
+        ],
+        "themes": {
+            "Dracula": {
+                "header": "#ff79c6",
+                "label": "#8be9fd",
+                "value": "#f1fa8c",
+                "length": "#1f6aa5",
+                "fmt": "#1f6aa5",
+                "source_empty": "#6272a4",
+                "bg": "#282a36"
+            },
+            "Nord": {
+                "header": "#88c0d0",
+                "label": "#81a1c1",
+                "value": "#a3be8c",
+                "source_empty": "#4c566a",
+                "bg": "#2e3440"
+            },
+            "Monokai": {
+                "header": "#f92672",
+                "label": "#66d9ef",
+                "value": "#e6db74",
+                "source_empty": "#75715e",
+                "bg": "#272822"
+            }
+        }
+    }
+}
